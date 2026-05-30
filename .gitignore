@@ -1,0 +1,64 @@
+# =========================
+# PYTHON
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Entorno virtual
+venv/
+.venv/
+env/
+ENV/
+
+# =========================
+# VARIABLES DE ENTORNO
+# =========================
+.env
+.env.*
+!.env.example
+
+# =========================
+# IDEs
+# =========================
+.vscode/
+.idea/
+
+# =========================
+# TESTS Y CACHE
+# =========================
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# =========================
+# BUILD
+# =========================
+build/
+dist/
+*.egg-info/
+
+# =========================
+# LOGS
+# =========================
+*.log
+
+# =========================
+# SISTEMA OPERATIVO
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# ALEMBIC
+# =========================
+# NO ignores migrations si trabajas en equipo
+# migrations/versions/
+
+# =========================
+# ARCHIVOS TEMPORALES
+# =========================
+*.tmp
+*.bak
