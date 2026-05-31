@@ -1,16 +1,24 @@
+"""
+Wrapper del servicio de análisis de imágenes con Gemini.
+Usa el nuevo SDK google-genai para analizar fotos de canales de drenaje.
+"""
 import json
 import logging
 import httpx
-import google.generativeai as genai
+from google import genai
+from google.genai import types
+
 from app.core.settings import settings
 
 logger = logging.getLogger(__name__)
 
-# Configurar API de Gemini
-genai.configure(api_key=settings.GEMINI_API_KEY)
+# Cliente único reutilizable del nuevo SDK
+_client = genai.Client(api_key=settings.GEMINI_API_KEY)
+
+MODELO_ANALISIS = "gemini-flash-lite-latest"
 
 SYSTEM_PROMPT = """
-Eres "DrenaCruz Engine", un experto en ingeniería hidráulica urbana 
+Eres "DrenaCruz Engine", un experto en ingeniería hidráulica urbana
 especializado en gestión de riesgos de inundación para Santa Cruz de la Sierra, Bolivia.
 
 TU MISIÓN ÚNICA: Analizar fotografías de canales de drenaje urbano.
@@ -23,53 +31,57 @@ REGLA 4: Descripción en español, máximo 80 caracteres, solo hechos objetivos.
 FORMATO: Responder ÚNICAMENTE con JSON válido. Sin texto adicional.
 """
 
+
 async def analizar_imagen(photo_url: str) -> dict:
     """
-    Descarga la imagen desde Supabase, la envía a Gemini y devuelve el análisis en formato JSON.
+    Descarga la imagen desde Supabase Storage, la envía a Gemini y
+    devuelve el análisis en formato diccionario Python.
+
+    Args:
+        photo_url: URL pública de la imagen en Supabase Storage.
+
+    Returns:
+        dict con: risk_score (int), category (str), ai_description (str)
     """
     try:
-        # 1. Descargar la imagen
-        async with httpx.AsyncClient() as client:
-            response = await client.get(photo_url)
-            response.raise_for_status()
-            image_data = response.content
-            mime_type = response.headers.get("Content-Type", "image/jpeg")
+        # 1. Descargar la imagen en memoria (sin guardar en disco)
+        async with httpx.AsyncClient(timeout=15.0) as http:
+            img_response = await http.get(photo_url)
+            img_response.raise_for_status()
+            image_bytes = img_response.content
+            mime_type = img_response.headers.get("Content-Type", "image/jpeg").split(";")[0]
 
-        # 2. Configurar el modelo (usamos gemini-3.1-flash-lite según requerimiento)
-        model = genai.GenerativeModel(
-            model_name="gemini-3.1-flash-lite",
-            system_instruction=SYSTEM_PROMPT,
-            generation_config=genai.types.GenerationConfig(
+        # 2. Enviar a Gemini con la imagen inline
+        response = await _client.aio.models.generate_content(
+            model=MODELO_ANALISIS,
+            contents=[
+                types.Part(
+                    inline_data=types.Blob(mime_type=mime_type, data=image_bytes)
+                ),
+                types.Part(text="Analiza esta imagen y devuelve el JSON solicitado."),
+            ],
+            config=types.GenerateContentConfig(
+                system_instruction=SYSTEM_PROMPT,
                 response_mime_type="application/json",
-            )
+            ),
         )
 
-        # 3. Enviar a Gemini
-        prompt_parts = [
-            {"mime_type": mime_type, "data": image_data},
-            "Analiza esta imagen y devuelve el JSON solicitado."
-        ]
-        
-        # Generar contenido
-        ai_response = await model.generate_content_async(prompt_parts)
-        
-        # 4. Parsear el resultado
-        result_text = ai_response.text.strip()
-        
-        # Por seguridad, si el modelo incluye bloques de markdown (ej. ```json ... ```), los limpiamos
-        if result_text.startswith("```json"):
-            result_text = result_text.replace("```json", "", 1)
-            if result_text.endswith("```"):
-                result_text = result_text[:-3]
-            
-        data = json.loads(result_text)
-        return data
+        # 3. Parsear el JSON de la respuesta
+        result_text = response.text.strip()
+
+        # Limpiar bloques markdown si Gemini los incluyó (por seguridad)
+        if result_text.startswith("```"):
+            result_text = result_text.split("```")[1]
+            if result_text.startswith("json"):
+                result_text = result_text[4:]
+
+        return json.loads(result_text)
 
     except Exception as e:
-        logger.error(f"Error analizando imagen con Gemini: {str(e)}")
-        # Manejo de error según SRS Sección 10.4
+        logger.error(f"[GeminiService] Error analizando imagen: {str(e)}")
+        # Fallback seguro — el reporte se guarda para revisión manual
         return {
             "risk_score": 0,
             "category": "error_ia",
-            "ai_description": "Fallo en análisis de IA. Requiere revisión humana."
+            "ai_description": "Fallo en análisis de IA. Requiere revisión humana.",
         }
