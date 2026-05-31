@@ -1,0 +1,25 @@
+# ==========================================================
+# BASE DE DATOS SUPABASE
+# ==========================================================
+
+# ==========================================================
+# BASE DE DATOS SUPABASE (Configuración para FastAPI + Alembic)
+# ==========================================================
+
+# Conexión para FastAPI (Usando el Session Pooler en puerto 5432, sin parámetros raros)
+# Connect to Postgres via the shared transaction-mode pooler (IPv4-only)
+# Para SQLAlchemy/Alembic usa el puerto 5432 (session pooler), sin parámetros extra
+DATABASE_URL=
+
+DIRECT_URL=
+# SUPABASE SDK
+# ==========================================================
+
+SUPABASE_URL=
+SUPABASE_ANON_KEY=
+
+# ======================================================
+# GOOGLE GEMINI
+# ==========================================================
+
+GEMINI_API_KEY=
