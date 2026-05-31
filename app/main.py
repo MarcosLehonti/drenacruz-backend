@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes.health import router as health_router
+from app.routes.reports import router as reports_router
+from app.routes.ai import router as ai_router
 from app.core.settings import settings
 
 # Inicialización de la aplicación FastAPI con metadatos descriptivos
@@ -24,6 +26,8 @@ app.add_middleware(
 
 # Inclusión de Routers (Monta los endpoints bajo el prefijo /api)
 app.include_router(health_router, prefix="/api", tags=["Salud & Diagnóstico"])
+app.include_router(reports_router, prefix="/api", tags=["Reportes (CRUD)"])
+app.include_router(ai_router, prefix="/api/ai", tags=["Inteligencia Artificial"])
 
 # Endpoint de bienvenida básico
 @app.get("/", tags=["General"])
